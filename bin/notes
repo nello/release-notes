@@ -1,0 +1,121 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH << File.expand_path('../lib/integrations', __dir__)
+
+require 'clamp'
+require 'semantic'
+
+require 'buildkite'
+require 'github'
+require 'trello'
+require 'true_pillars'
+
+Clamp do
+  option ['--github-api-token', '-g'], 'GITHUB_API_TOKEN',
+    'Github API token for authentication',
+    environment_variable: 'GITHUB_API_TOKEN', required: true
+
+  option ['--buildkite-api-token', '-b'], 'BUILDKITE_API_TOKEN',
+    'Buildkite API token for authentication',
+    environment_variable: 'BUILDKITE_API_TOKEN', required: true
+
+  option ['--trello-api-key', '-t'], 'TRELLO_API_KEY',
+    'Trello API key for authentication',
+    environment_variable: 'TRELLO_API_KEY', required: true
+
+  option ['--trello-oauth-token', '-o'], 'TRELLO_OAUTH_TOKEN',
+    'Trello oauth token for authentication',
+    environment_variable: 'TRELLO_OAUTH_TOKEN', required: true
+
+  option ['--build-name', '-n'], 'BUILD_NAME',
+    'Name of Buildkite build to be interrogated',
+    environment_variable: 'BUILD_NAME', required: true
+
+  option ['--check-unfinished', '-u'], :flag, "return 0 if build has no unfinished work, otherwise 1"
+
+  option ['--previous-build-number', '-p'], 'PREVIOUS_BUILD_NUMBER', "Previous build to use as base for comparison"
+
+  parameter 'BUILD_NUMBER', "Build to report on"
+
+  def execute
+    puts "build name: #{build_name}"
+    puts "old build: #{old_build}"
+    puts "new build: #{new_build}"
+    pipeline = Buildkite.new(build_name)
+
+    if new_build < old_build
+      puts 'WARNING: these notes are for what you will lose by rolling back!\n'
+      commits = pipeline.commits_for(new_build.patch, old_build.patch)
+    else
+      commits = pipeline.commits_for(old_build.patch, new_build.patch)
+    end
+
+    cards = Trello.new.cards_for(commits)
+    if check_unfinished?
+      print_untested(cards)
+    else
+      print_dev_complete(cards)
+    end
+  end
+
+  private
+
+  def old_build
+    return Semantic::Version.new(previous_build_number) if previous_build_number
+    return Semantic::Version.new('0.0.1') if check_unfinished?
+    Semantic::Version.new(TruePillars.version)
+  end
+
+  def new_build
+    Semantic::Version.new build_number
+  end
+
+  def cards_for_list(list_name, cards)
+    cards.select { |card| card && card['list'] == list_name }
+  end
+
+  def print_dev_complete(cards)
+    print_heading "DEV COMPLETE CARDS"
+    ['DONE', 'QA', 'READY FOR QA'].each do |list_name|
+      print_list(list_name, cards_for_list(list_name, cards))
+    end
+  end
+
+  def print_untested(cards)
+    print_heading "UNTESTED CARDS"
+    status = 0
+    ['DEVELOPMENT', 'READY FOR QA', 'QA'].each do |list_name|
+      status |= print_list(list_name, cards_for_list(list_name, cards))
+    end
+    #exit status -- uncomment once we've cleared QA backlog (26/4/16)
+  end
+
+  def print_list(list_name, cards)
+    print "#{list_name}\n"
+    list_name.length.times { putc '-' }
+    print "\n"
+    cards.each { |card| print_card(card) }
+    print "\n"
+    (cards && cards.length > 0) ? 1 : 0
+  end
+
+  def print_card(card)
+    print "#{card['idShort']}: #{card['name']}\n"
+    print "\n     #{card['desc']}\n" unless card['desc'].empty?
+    card['checklists'].each do |checklist|
+      print "\n     #{checklist['name']}:\n"
+      checklist['checkItems'].each do |item|
+        print "     - #{item['name']} (#{item['state']})\n"
+      end
+    end
+    print "\n"
+  end
+
+  def print_heading(s)
+    print "\n"
+    s.length.times { putc '=' }
+    print "\n#{s}\n"
+    s.length.times { putc '=' }
+    print "\n\n"
+  end
+end

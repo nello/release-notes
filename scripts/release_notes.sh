@@ -12,7 +12,7 @@ BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes 
 ENV_FILE=$(mktemp)
 env | grep -e ^BUILDKITE -e ^BUILD_NAME -e ^VERSION_URI -e ^GITHUB -e ^TRELLO >> ${ENV_FILE}
 
-docker run -t --rm -v "${HOME}/.build/.bundle:/usr/local/bundle" -v "$(pwd)":/mnt --workdir /mnt --env-file ${ENV_FILE} \
+docker run -t --rm -v "$(pwd)":/mnt --workdir /mnt --env-file ${ENV_FILE} \
   ${DOCKER_IMAGE} sh -c "${SETUP_COMMAND} && ${BUILD_COMMAND}"
 EXIT_STATUS=$?
 

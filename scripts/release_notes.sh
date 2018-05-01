@@ -1,13 +1,13 @@
 #!/bin/bash
 
-if [ -z "${VERSION}" ]; then
-  echo "Need to set VERSION"
+if [ -z "${1}" ]; then
+  echo "Need to pass in VERSION"
   exit 1
 fi
 
 DOCKER_IMAGE=ruby:2.3.1-alpine
 SETUP_COMMAND="apk --update --no-progress add build-base bash git tzdata libxml2-dev libxslt-dev"
-BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes ${VERSION}"
+BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes ${1}"
 
 ENV_FILE=$(mktemp)
 env | grep -e ^BUILDKITE -e ^BUILD_NAME -e ^VERSION_URI -e ^GITHUB -e ^TRELLO >> ${ENV_FILE}

@@ -31,6 +31,10 @@ Clamp do
     'Name of Buildkite build to be interrogated',
     environment_variable: 'BUILD_NAME', required: true
 
+  option ['--buildkite-branch', '-B'], 'BUILDKITE_BRANCH',
+    'Name of Git branch for this build',
+    environment_variable: 'BUILDKITE_BRANCH', required: false
+
   option ['--check-unfinished', '-u'], :flag, "return 0 if build has no unfinished work, otherwise 1"
 
   option ['--previous-build-number', '-p'], 'PREVIOUS_BUILD_NUMBER', "Previous build to use as base for comparison"
@@ -38,10 +42,11 @@ Clamp do
   parameter 'BUILD_NUMBER', "Build to report on"
 
   def execute
-    puts "build name: #{build_name}"
+    branch_name = buildkite_branch || 'master'
+    puts "build name: #{build_name}:#{branch_name}"
     puts "old build: #{old_build}"
     puts "new build: #{new_build}"
-    pipeline = Buildkite.new(build_name)
+    pipeline = Buildkite.new(build_name, branch_name)
 
     if new_build < old_build
       puts 'WARNING: these notes are for what you will lose by rolling back!\n'

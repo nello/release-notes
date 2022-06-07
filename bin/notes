@@ -89,7 +89,7 @@ Clamp do
   def print_untested(cards)
     print_heading "UNTESTED CARDS"
     status = 0
-    ['DEVELOPMENT', 'READY FOR QA', 'QA'].each do |list_name|
+    ['DEVELOPMENT', 'DEPLOY TO QA', 'READY FOR QA', 'QA'].each do |list_name|
       status |= print_list(list_name, cards_for_list(list_name, cards))
     end
     #exit status -- uncomment once we've cleared QA backlog (26/4/16)

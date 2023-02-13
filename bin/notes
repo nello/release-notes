@@ -10,6 +10,7 @@ require 'github'
 require 'trello'
 require 'true_pillars'
 require 'slacker'
+require 'tzinfo'
 
 UNTESTED = ['DEVELOPMENT', 'DEPLOY TO QA', 'READY FOR QA', 'QA']
 RELEASING = ['DONE', 'DEPLOY TO PROD', 'RELEASE TASKS', 'QA', 'READY FOR QA']
@@ -99,7 +100,11 @@ Clamp do
   end
 
   def print_dev_complete(cards)
-    pr_heading "Release Notes"
+    pr_heading "Release Notes: #{build_name}"
+    pr "_#{time_now_here}_"
+    pr "  _[##{build_number}]_" if build_number
+    pr "\n\n"
+
     RELEASING.each do |list_name|
       pr_list(list_name, cards_for_list(list_name, cards))
     end
@@ -107,7 +112,11 @@ Clamp do
   end
 
   def print_untested(cards)
-    pr_heading "Untested cards"
+    pr_heading "Untested cards: #{build_name} #{build_number}"
+    pr "_#{time_now_here}_"
+    pr "  _[##{build_number}]_" if build_number
+    pr "\n\n"
+
     status = 0
     UNTESTED.each do |list_name|
       status |= pr_list(list_name, cards_for_list(list_name, cards))
@@ -137,7 +146,6 @@ Clamp do
   end
 
   def pr_heading(s)
-    pr "\n"
     (s.length+2).times { pr '-' }
     pr "\n# #{s}\n"
     (s.length+2).times { pr '-' }
@@ -155,5 +163,9 @@ Clamp do
       File.open("release_notes.md", "w") { |f| f.write @output }
       Slacker.new("##{slack_channel}").upload("release_notes.md", "Release Notes: #{build_name} #{build_number}")
     end
+  end
+
+  def time_now_here
+    Time.now.getlocal(TZInfo::Timezone.get('Australia/Melbourne'))
   end
 end

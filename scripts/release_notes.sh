@@ -5,7 +5,7 @@ if [ -z "${1}" ]; then
   exit 1
 fi
 
-DOCKER_IMAGE=ruby:2.3.1-alpine
+DOCKER_IMAGE=ruby:3.1.2-alpine
 SETUP_COMMAND="apk --update --no-progress add build-base bash git tzdata libxml2-dev libxslt-dev"
 BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes ${1}"
 

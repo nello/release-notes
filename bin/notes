@@ -9,37 +9,50 @@ require 'buildkite'
 require 'github'
 require 'trello'
 require 'true_pillars'
+require 'slacker'
+
+UNTESTED = ['DEVELOPMENT', 'DEPLOY TO QA', 'READY FOR QA', 'QA']
+DEV_COMPLETE = ['DONE', 'DEPLOY TO PROD', 'RELEASE TASKS', 'QA', 'READY FOR QA']
 
 Clamp do
-  option ['--github-api-token', '-g'], 'GITHUB_API_TOKEN',
-    'Github API token for authentication',
-    environment_variable: 'GITHUB_API_TOKEN', required: true
+  option ['--buildkite-branch', '-B'], 'BUILDKITE_BRANCH',
+         'Name of Git branch for this build',
+         environment_variable: 'BUILDKITE_BRANCH', required: false
 
   option ['--buildkite-api-token', '-b'], 'BUILDKITE_API_TOKEN',
-    'Buildkite API token for authentication',
-    environment_variable: 'BUILDKITE_API_TOKEN', required: true
+         'Buildkite API token for authentication',
+         environment_variable: 'BUILDKITE_API_TOKEN', required: true
 
-  option ['--trello-api-key', '-t'], 'TRELLO_API_KEY',
-    'Trello API key for authentication',
-    environment_variable: 'TRELLO_API_KEY', required: true
+  option ['--slack-channel', '-c'], 'SLACK_CHANNEL',
+         "Send output to Slack channel"
 
-  option ['--trello-oauth-token', '-o'], 'TRELLO_OAUTH_TOKEN',
-    'Trello oauth token for authentication',
-    environment_variable: 'TRELLO_OAUTH_TOKEN', required: true
+  option ['--github-api-token', '-g'], 'GITHUB_API_TOKEN',
+         'Github API token for authentication',
+         environment_variable: 'GITHUB_API_TOKEN', required: true
 
   option ['--build-name', '-n'], 'BUILD_NAME',
-    'Name of Buildkite build to be interrogated',
-    environment_variable: 'BUILD_NAME', required: true
+         'Name of Buildkite build to be interrogated',
+         environment_variable: 'BUILD_NAME', required: true
 
-  option ['--buildkite-branch', '-B'], 'BUILDKITE_BRANCH',
-    'Name of Git branch for this build',
-    environment_variable: 'BUILDKITE_BRANCH', required: false
+  option ['--trello-oauth-token', '-o'], 'TRELLO_OAUTH_TOKEN',
+         'Trello oauth token for authentication',
+         environment_variable: 'TRELLO_OAUTH_TOKEN', required: true
 
-  option ['--check-unfinished', '-u'], :flag, "return 0 if build has no unfinished work, otherwise 1"
+  option ['--previous-build-number', '-p'], 'PREVIOUS_BUILD_NUMBER',
+         "Previous build to use as base for comparison"
 
-  option ['--previous-build-number', '-p'], 'PREVIOUS_BUILD_NUMBER', "Previous build to use as base for comparison"
+  option ['--slack-api-token', '-s'], 'SLACK_API_TOKEN',
+         'Slack API token for authentication',
+         environment_variable: 'SLACK_API_TOKEN', required: false
 
-  parameter 'BUILD_NUMBER', "Build to report on"
+  option ['--trello-api-key', '-t'], 'TRELLO_API_KEY',
+         'Trello API key for authentication',
+         environment_variable: 'TRELLO_API_KEY', required: true
+
+  option ['--check-unfinished', '-u'], :flag,
+         "return 0 if build has no unfinished work, otherwise 1"
+
+  parameter 'BUILD_NUMBER', "Build to report on", required: false
 
   def execute
     branch_name = buildkite_branch || 'master'
@@ -72,7 +85,7 @@ Clamp do
   end
 
   def new_build
-    Semantic::Version.new build_number
+    Semantic::Version.new build_number || '2050.12.100000'
   end
 
   def cards_for_list(list_name, cards)
@@ -80,47 +93,60 @@ Clamp do
   end
 
   def print_dev_complete(cards)
-    print_heading "DEV COMPLETE CARDS"
-    ['DONE', 'QA', 'READY FOR QA'].each do |list_name|
-      print_list(list_name, cards_for_list(list_name, cards))
+    pr_heading "Release Notes"
+    DEV_COMPLETE.each do |list_name|
+      pr_list(list_name, cards_for_list(list_name, cards))
     end
+    pr_to_slack if slack_channel
   end
 
   def print_untested(cards)
-    print_heading "UNTESTED CARDS"
+    pr_heading "Untested cards"
     status = 0
-    ['DEVELOPMENT', 'DEPLOY TO QA', 'READY FOR QA', 'QA'].each do |list_name|
-      status |= print_list(list_name, cards_for_list(list_name, cards))
+    UNTESTED.each do |list_name|
+      status |= pr_list(list_name, cards_for_list(list_name, cards))
     end
-    #exit status -- uncomment once we've cleared QA backlog (26/4/16)
+    pr_to_slack if slack_channel
+    #exit status -- this would be nice, but we're not that disciplined :)
   end
 
-  def print_list(list_name, cards)
-    print "#{list_name}\n"
-    list_name.length.times { putc '-' }
-    print "\n"
-    cards.each { |card| print_card(card) }
-    print "\n"
+  def pr_list(list_name, cards)
+    pr "#{list_name}\n"
+    pr "----"
+    pr "\n"
+    cards.each { |card| pr_card(card) }
+    pr "\n"
     (cards && cards.length > 0) ? 1 : 0
   end
 
-  def print_card(card)
-    print "#{card['idShort']}: #{card['name']}\n"
-    print "\n     #{card['desc']}\n" unless card['desc'].empty?
+  def pr_card(card)
+    pr "#{card['idShort']}: #{card['name']}\n"
+    pr "\n   #{card['desc']}\n" unless card['desc'].empty?
     card['checklists'].each do |checklist|
-      print "\n     #{checklist['name']}:\n"
+      pr "\n   #{checklist['name']}:\n"
       checklist['checkItems'].each do |item|
-        print "     - #{item['name']} (#{item['state']})\n"
+        pr "   - #{item['name']} (#{item['state']})\n"
       end
     end
-    print "\n"
+    pr "\n"
   end
 
-  def print_heading(s)
-    print "\n"
-    s.length.times { putc '=' }
-    print "\n#{s}\n"
-    s.length.times { putc '=' }
-    print "\n\n"
+  def pr_heading(s)
+    pr "\n"
+    s.length.times { pr '-' }
+    pr "\n# #{s}\n"
+    s.length.times { pr '-' }
+    pr "\n\n"
+  end
+
+  def pr(s)
+    @output ||= ""
+    @output << s
+    print s
+  end
+
+  def pr_to_slack
+    File.open("release_notes.md", "w") { |f| f.write @output }
+    Slacker.new("##{slack_channel}").upload("release_notes.md", "Release Notes: #{build_name} #{build_number}")
   end
 end

@@ -4,12 +4,11 @@ git_source(:github) do |repo_name|
 end
 
 gem 'clamp'
-
 gem 'rest-client'
 gem 'json'
-
 gem 'semantic'
-
 gem 'omniauth-github'
 gem 'octokit'
-
+gem 'slack-ruby-client'
+gem 'marcel'
+gem 'pandoc-ruby'

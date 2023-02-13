@@ -49,7 +49,6 @@ GEM
     omniauth-oauth2 (1.8.0)
       oauth2 (>= 1.4, < 3)
       omniauth (~> 2.0)
-    pandoc-ruby (2.1.7)
     public_suffix (5.0.1)
     rack (3.0.4.1)
     rack-protection (3.0.5)
@@ -92,7 +91,6 @@ DEPENDENCIES
   marcel
   octokit
   omniauth-github
-  pandoc-ruby
   rest-client
   semantic
   slack-ruby-client

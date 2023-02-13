@@ -117,11 +117,10 @@ Clamp do
   end
 
   def pr_list(list_name, cards)
-    pr "#{list_name}\n"
-    pr "----"
+    pr "## #{list_name}\n"
     pr "\n"
     cards.each { |card| pr_card(card) }
-    pr "\n"
+    pr "---\n"
     (cards && cards.length > 0) ? 1 : 0
   end
 
@@ -139,9 +138,9 @@ Clamp do
 
   def pr_heading(s)
     pr "\n"
-    s.length.times { pr '-' }
+    (s.length+2).times { pr '-' }
     pr "\n# #{s}\n"
-    s.length.times { pr '-' }
+    (s.length+2).times { pr '-' }
     pr "\n\n"
   end
 

@@ -7,7 +7,7 @@ fi
 
 DOCKER_IMAGE=ruby:3.1.2-alpine
 SETUP_COMMAND="apk --update --no-progress add build-base bash git tzdata libxml2-dev libxslt-dev"
-BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes --check-unfinished ${1}"
+BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes --check-unfinished ${1} && echo '' && bundle exec ./bin/notes ${1}"
 
 ENV_FILE=$(mktemp)
 env | grep -e ^BUILDKITE -e ^BUILD_NAME -e ^VERSION_URI -e ^GITHUB -e ^TRELLO >> ${ENV_FILE}

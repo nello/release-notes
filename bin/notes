@@ -12,7 +12,9 @@ require 'true_pillars'
 require 'slacker'
 
 UNTESTED = ['DEVELOPMENT', 'DEPLOY TO QA', 'READY FOR QA', 'QA']
-DEV_COMPLETE = ['DONE', 'DEPLOY TO PROD', 'RELEASE TASKS', 'QA', 'READY FOR QA']
+RELEASING = ['DONE', 'DEPLOY TO PROD', 'RELEASE TASKS', 'QA', 'READY FOR QA']
+MIN_BUILD = '0.0.1'
+MAX_BUILD = '2050.12.100000'
 
 Clamp do
   option ['--buildkite-branch', '-B'], 'BUILDKITE_BRANCH',
@@ -50,7 +52,11 @@ Clamp do
          environment_variable: 'TRELLO_API_KEY', required: true
 
   option ['--check-unfinished', '-u'], :flag,
-         "return 0 if build has no unfinished work, otherwise 1"
+         "Tell us which work about to be released hasn't yet been tested"
+
+  option ['--version-uri', '-v'], 'VERSION_URI',
+         'URI for current prod version of this service',
+         environment_variable: 'VERSION_URI', required: true
 
   parameter 'BUILD_NUMBER', "Build to report on", required: false
 
@@ -80,12 +86,12 @@ Clamp do
 
   def old_build
     return Semantic::Version.new(previous_build_number) if previous_build_number
-    return Semantic::Version.new('0.0.1') if check_unfinished?
-    Semantic::Version.new(TruePillars.version)
+    return Semantic::Version.new(MIN_BUILD) if check_unfinished?
+    Semantic::Version.new(TruePillars.version(version_uri))
   end
 
   def new_build
-    Semantic::Version.new build_number || '2050.12.100000'
+    Semantic::Version.new build_number || MAX_BUILD
   end
 
   def cards_for_list(list_name, cards)
@@ -94,10 +100,10 @@ Clamp do
 
   def print_dev_complete(cards)
     pr_heading "Release Notes"
-    DEV_COMPLETE.each do |list_name|
+    RELEASING.each do |list_name|
       pr_list(list_name, cards_for_list(list_name, cards))
     end
-    pr_to_slack if slack_channel
+    pr_to_slack
   end
 
   def print_untested(cards)
@@ -106,7 +112,7 @@ Clamp do
     UNTESTED.each do |list_name|
       status |= pr_list(list_name, cards_for_list(list_name, cards))
     end
-    pr_to_slack if slack_channel
+    pr_to_slack
     #exit status -- this would be nice, but we're not that disciplined :)
   end
 
@@ -146,7 +152,9 @@ Clamp do
   end
 
   def pr_to_slack
-    File.open("release_notes.md", "w") { |f| f.write @output }
-    Slacker.new("##{slack_channel}").upload("release_notes.md", "Release Notes: #{build_name} #{build_number}")
+    if slack_channel
+      File.open("release_notes.md", "w") { |f| f.write @output }
+      Slacker.new("##{slack_channel}").upload("release_notes.md", "Release Notes: #{build_name} #{build_number}")
+    end
   end
 end

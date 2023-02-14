@@ -134,7 +134,7 @@ Clamp do
   end
 
   def pr_card(card)
-    pr "#{card['idShort']}: #{card['name']}\n"
+    pr "### #{card['idShort']}: #{card['name']}\n"
     pr "\n   #{card['desc']}\n" unless card['desc'].empty?
     card['checklists'].each do |checklist|
       pr "\n   #{checklist['name']}:\n"

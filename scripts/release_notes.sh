@@ -6,8 +6,9 @@ if [ -z "${1}" ]; then
 fi
 
 DOCKER_IMAGE=ruby:3.1.2-alpine
+BUNDLER_VERSION=2.3.17
 SETUP_COMMAND="apk --update --no-progress add build-base bash git tzdata libxml2-dev libxslt-dev"
-BUILD_COMMAND="gem install bundler && bundle install && bundle exec ./bin/notes ${1} --slack-channel releases"
+BUILD_COMMAND="export BUNDLER_VERSION=${BUNDLER_VERSION}; gem install bundler -v \${BUNDLER_VERSION} && bundle install && bundle exec ./bin/notes ${1} --slack-channel releases"
 
 ENV_FILE=$(mktemp)
 env | grep -e ^BUILDKITE -e ^BUILD_NAME -e ^VERSION_URI -e ^GITHUB -e ^TRELLO >> ${ENV_FILE}
